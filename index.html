@@ -1,0 +1,1040 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>肥乡区学术·伦理·法治 互动地图</title>
+    <!-- 外部资源 -->
+    <script src="https://cdn.tailwindcss.com"></script>
+    <link href="https://cdn.jsdelivr.net/npm/font-awesome@4.7.0/css/font-awesome.min.css" rel="stylesheet">
+    <script type="text/javascript" src="https://api.map.baidu.com/api?v=1.0&type=webgl&ak=X0m8PibfjI6CMfpgMyNc6vXrQrVivfXQ"></script>
+    
+    <!-- Tailwind 配置 -->
+    <script>
+        tailwind.config = {
+            theme: {
+                extend: {
+                    colors: {
+                        primary: '#1e40af',    // 法治蓝
+                        secondary: '#b91c1c',  // 精神红
+                        tertiary: '#065f46',   // 希望绿
+                        quaternary: '#92400e', // 传承棕
+                        light: '#f8fafc',
+                        dark: '#1e293b'
+                    },
+                    fontFamily: {
+                        sans: ['Inter', 'system-ui', 'sans-serif'],
+                    }
+                }
+            }
+        }
+    </script>
+    
+    <style type="text/tailwindcss">
+        @layer utilities {
+            .text-shadow {
+                text-shadow: 0 2px 4px rgba(0,0,0,0.1);
+            }
+            .bg-blur {
+                backdrop-filter: blur(8px);
+            }
+            .marker-pulse {
+                animation: pulse 2s infinite;
+            }
+            @keyframes pulse {
+                0% { transform: scale(1); opacity: 1; }
+                50% { transform: scale(1.2); opacity: 0.8; }
+                100% { transform: scale(1); opacity: 1; }
+            }
+            .story-transition {
+                transition: all 0.5s ease-in-out;
+            }
+        }
+    </style>
+    
+    <style>
+        html, body {
+            height: 100%;
+            margin: 0;
+            padding: 0;
+            overflow: hidden;
+        }
+        #map-container {
+            height: 100vh;
+            width: 100%;
+            z-index: 1;
+            position: relative;
+        }
+        .custom-marker {
+            border-radius: 50%;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            color: white;
+            font-weight: bold;
+            box-shadow: 0 2px 10px rgba(0,0,0,0.2);
+            transition: all 0.3s ease;
+        }
+        .custom-marker:hover {
+            transform: scale(1.2);
+            box-shadow: 0 4px 15px rgba(0,0,0,0.3);
+        }
+        .info-window {
+            max-width: 350px;
+            overflow: hidden;
+        }
+        .info-window img {
+            width: 100%;
+            height: 180px;
+            object-fit: cover;
+            border-radius: 8px 8px 0 0;
+        }
+        .category-icon {
+            width: 24px;
+            height: 24px;
+            border-radius: 50%;
+            display: inline-flex;
+            align-items: center;
+            justify-content: center;
+            margin-right: 8px;
+        }
+        .floating-panel {
+            position: absolute;
+            top: 20px;
+            left: 20px;
+            z-index: 1000;
+            background-color: rgba(255, 255, 255, 0.9);
+            border-radius: 12px;
+            box-shadow: 0 4px 20px rgba(0, 0, 0, 0.15);
+            padding: 20px;
+            backdrop-filter: blur(8px);
+            max-height: calc(100vh - 40px);
+            overflow-y: auto;
+        }
+        .category-filter {
+            margin-bottom: 15px;
+        }
+        .category-filter label {
+            cursor: pointer;
+            transition: all 0.2s ease;
+        }
+        .category-filter label:hover {
+            transform: translateX(5px);
+        }
+        .upload-btn {
+            position: absolute;
+            bottom: 20px;
+            right: 20px;
+            z-index: 1000;
+        }
+        .story-line {
+            position: absolute;
+            top: 50%;
+            left: 50%;
+            transform: translate(-50%, -50%);
+            z-index: 1000;
+            background-color: rgba(255, 255, 255, 0.95);
+            border-radius: 12px;
+            box-shadow: 0 4px 20px rgba(0, 0, 0, 0.15);
+            padding: 25px;
+            backdrop-filter: blur(8px);
+            max-width: 500px;
+            display: none;
+        }
+        .story-line.active {
+            display: block;
+        }
+        .close-story {
+            position: absolute;
+            top: 15px;
+            right: 15px;
+            cursor: pointer;
+            font-size: 20px;
+        }
+        .progress-bar {
+            height: 4px;
+            background-color: #e2e8f0;
+            border-radius: 2px;
+            margin: 10px 0;
+            overflow: hidden;
+        }
+        .progress {
+            height: 100%;
+            background-color: #1e40af;
+            border-radius: 2px;
+            transition: width 0.5s ease;
+        }
+        .nav-btn {
+            position: absolute;
+            top: 50%;
+            transform: translateY(-50%);
+            z-index: 1000;
+            background-color: rgba(255, 255, 255, 0.8);
+            border: none;
+            border-radius: 50%;
+            width: 40px;
+            height: 40px;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            cursor: pointer;
+            box-shadow: 0 2px 10px rgba(0, 0, 0, 0.2);
+            transition: all 0.3s ease;
+        }
+        .nav-btn:hover {
+            background-color: white;
+            transform: translateY(-50%) scale(1.1);
+        }
+        .prev-btn {
+            left: 20px;
+        }
+        .next-btn {
+            right: 20px;
+        }
+        .custom-label {
+            display: inline-flex;
+            align-items: center;
+            background-color: rgba(255, 255, 255, 0.95);
+            border-radius: 6px;
+            padding: 3px 8px;
+            font-size: 12px;
+            font-weight: 500;
+            box-shadow: 0 2px 5px rgba(0, 0, 0, 0.15);
+            white-space: nowrap;
+            border-left: 3px solid;
+        }
+        .category-badge {
+            width: 16px;
+            height: 16px;
+            border-radius: 50%;
+            display: inline-flex;
+            align-items: center;
+            justify-content: center;
+            margin-right: 6px;
+            color: white;
+            font-size: 10px;
+        }
+        .challenge-badge {
+            position: absolute;
+            top: -5px;
+            right: -5px;
+            background-color: #f59e0b;
+            color: white;
+            border-radius: 50%;
+            width: 20px;
+            height: 20px;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            font-size: 12px;
+            font-weight: bold;
+        }
+        .youth-action {
+            background-color: rgba(22, 163, 74, 0.1);
+            border-left: 4px solid #16a34a;
+            padding: 10px;
+            margin: 10px 0;
+            border-radius: 0 4px 4px 0;
+        }
+        .oral-history {
+            background-color: rgba(59, 130, 246, 0.1);
+            border-left: 4px solid #3b82f6;
+            padding: 10px;
+            margin: 10px 0;
+            border-radius: 0 4px 4px 0;
+            font-style: italic;
+        }
+    </style>
+</head>
+<body class="bg-gray-100 font-sans">
+<!-- 地图容器 -->
+<div id="map-container"></div>
+
+<!-- 左侧面板 -->
+<div class="floating-panel w-72">
+    <h1 class="text-2xl font-bold text-primary mb-4 text-shadow">肥乡区学术·伦理·法治</h1>
+    <p class="text-gray-600 mb-6">探索肥乡区"道德肥乡·文明之城"品牌建设与实践案例</p>
+
+    <!-- 维度筛选 -->
+    <div class="category-filter">
+        <h2 class="text-lg font-semibold mb-3 text-dark">维度筛选</h2>
+
+        <div class="mb-2">
+            <label class="flex items-center p-2 rounded-lg hover:bg-gray-100 transition-colors">
+                <input type="checkbox" class="category-checkbox mr-3" value="morality" checked>
+                <span class="category-icon bg-quaternary text-white">
+                    <i class="fa fa-heart"></i>
+                </span>
+                <span>道德文化传承</span>
+            </label>
+        </div>
+
+        <div class="mb-2">
+            <label class="flex items-center p-2 rounded-lg hover:bg-gray-100 transition-colors">
+                <input type="checkbox" class="category-checkbox mr-3" value="rule" checked>
+                <span class="category-icon bg-primary text-white">
+                    <i class="fa fa-gavel"></i>
+                </span>
+                <span>法治建设实践</span>
+            </label>
+        </div>
+
+        <div class="mb-2">
+            <label class="flex items-center p-2 rounded-lg hover:bg-gray-100 transition-colors">
+                <input type="checkbox" class="category-checkbox mr-3" value="values" checked>
+                <span class="category-icon bg-secondary text-white">
+                    <i class="fa fa-star"></i>
+                </span>
+                <span>核心价值观践行</span>
+            </label>
+        </div>
+
+        <div class="mb-2">
+            <label class="flex items-center p-2 rounded-lg hover:bg-gray-100 transition-colors">
+                <input type="checkbox" class="category-checkbox mr-3" value="challenge" checked>
+                <span class="category-icon bg-amber-500 text-white relative">
+                    <i class="fa fa-lightbulb-o"></i>
+                    <span class="challenge-badge">青</span>
+                </span>
+                <span>发展挑战与青年责任</span>
+            </label>
+        </div>
+    </div>
+
+    <!-- 搜索框 -->
+    <div class="mt-6">
+        <h2 class="text-lg font-semibold mb-3 text-dark">关键词搜索</h2>
+        <div class="relative">
+            <input type="text" id="search-input" placeholder="输入关键词搜索点位..."
+                   class="w-full p-2 pl-10 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-primary">
+            <i class="fa fa-search absolute left-3 top-3 text-gray-400"></i>
+        </div>
+    </div>
+
+    <!-- 主题故事线 -->
+    <div class="mt-6">
+        <h2 class="text-lg font-semibold mb-3 text-dark">主题故事线</h2>
+        <button id="story-btn" class="w-full bg-primary text-white py-2 px-4 rounded-lg hover:bg-blue-800 transition-colors flex items-center justify-center">
+            <i class="fa fa-book mr-2"></i> 探索"道德肥乡"传承之旅
+        </button>
+    </div>
+
+    <!-- 我的观察笔记 -->
+    <div class="mt-6">
+        <h2 class="text-lg font-semibold mb-3 text-dark">我的田野笔记</h2>
+        <button id="notes-btn" class="w-full bg-tertiary text-white py-2 px-4 rounded-lg hover:bg-green-700 transition-colors flex items-center justify-center">
+            <i class="fa fa-pencil mr-2"></i> 记录家乡观察与思考
+        </button>
+    </div>
+</div>
+
+<!-- 上传按钮 -->
+<button class="upload-btn bg-secondary text-white p-3 rounded-full shadow-lg hover:bg-red-700 transition-colors">
+    <i class="fa fa-plus text-xl"></i>
+</button>
+
+<!-- 故事线弹窗 -->
+<div class="story-line" id="story-line">
+    <span class="close-story text-gray-500 hover:text-gray-700">
+        <i class="fa fa-times"></i>
+    </span>
+    <h2 class="text-2xl font-bold text-primary mb-4" id="story-title">价值观传承之旅</h2>
+    <div class="progress-bar">
+        <div class="progress" id="story-progress" style="width: 0%"></div>
+    </div>
+    <div id="story-content" class="mb-6">
+        <!-- 故事线内容将通过JS动态生成 -->
+    </div>
+    <div class="flex justify-between">
+        <button id="prev-story" class="bg-gray-200 text-gray-700 py-2 px-4 rounded-lg hover:bg-gray-300 transition-colors">
+            <i class="fa fa-arrow-left mr-2"></i> 上一站
+        </button>
+        <button id="next-story" class="bg-primary text-white py-2 px-4 rounded-lg hover:bg-blue-800 transition-colors">
+            下一站 <i class="fa fa-arrow-right ml-2"></i>
+        </button>
+    </div>
+</div>
+
+<!-- 田野笔记弹窗 -->
+<div class="story-line" id="notes-modal">
+    <span class="close-notes text-gray-500 hover:text-gray-700">
+        <i class="fa fa-times"></i>
+    </span>
+    <h2 class="text-2xl font-bold text-tertiary mb-4">我的田野观察笔记</h2>
+    <div class="mb-4">
+        <p class="text-gray-600 text-sm mb-3">记录你对家乡道德、法治建设的观察与思考，分享你的调研发现</p>
+        <textarea id="notes-content" rows="6" class="w-full p-3 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-tertiary" placeholder="在这里写下你的观察与思考..."></textarea>
+    </div>
+    <div class="flex justify-end">
+        <button id="save-notes" class="bg-tertiary text-white py-2 px-4 rounded-lg hover:bg-green-700 transition-colors">
+            <i class="fa fa-save mr-2"></i> 保存笔记
+        </button>
+    </div>
+</div>
+
+<!-- 导航按钮 -->
+<button class="nav-btn prev-btn" id="prev-btn">
+    <i class="fa fa-chevron-left"></i>
+</button>
+<button class="nav-btn next-btn" id="next-btn">
+    <i class="fa fa-chevron-right"></i>
+</button>
+
+<script>
+    // 肥乡区坐标：36.56° N, 114.81° E
+    // 点位数据 - 增加了发展挑战与青年责任维度内容
+    const points = [
+        {
+            id: 1,
+            name: "肥乡区公民道德建设展馆",
+            category: "morality",
+            categoryName: "道德文化传承",
+            location: {lat: 36.56, lng: 114.81},
+            address: "河北省邯郸市肥乡区肥乡镇",
+            description: "肥乡区公民道德建设展馆是展示肥乡道德建设成果的重要窗口，馆内展示了肥乡历年道德模范事迹，包括全国道德模范提名奖获得者、中国好人、河北好人等先进典型的感人事迹。",
+            image: "https://p11-doubao-search-sign.byteimg.com/labis/7a5b1658e4f96cbb52747ce9ac06e63d~tplv-be4g95zd3a-image.jpeg?rk3s=542c0f93&x-expires=1764404476&x-signature=Ul63ye33aU5RB1O6A1tGgR%2BTY28%3D",
+            video: "",
+            audio: "",
+            interpretation: "肥乡区公民道德建设展馆是肥乡'道德肥乡·文明之城'品牌建设的重要载体，通过展示道德模范事迹，弘扬社会主义核心价值观，引导市民向善向好。肥乡区积极培育和践行社会主义核心价值观，涌现出一大批道德模范和先进典型。",
+            oralHistory: "展馆管理员李阿姨（58岁）说：'每年有很多中小学生来参观，孩子们听着道德模范的故事，眼神里都透着敬佩。有个孩子看完后说长大了也要当好人，这就是我们做展馆的意义啊。'",
+            storyOrder: 1,
+            storyDescription: "我们的'道德肥乡'传承之旅从肥乡区公民道德建设展馆开始，这里展示了肥乡历年道德模范事迹，包括全国道德模范提名奖获得者、中国好人、河北好人等先进典型的感人事迹。展馆通过图文并茂的方式，生动展现了肥乡人在道德实践中的榜样力量。"
+        },
+        {
+            id: 2,
+            name: "肥乡区天台山镇孝老食堂",
+            category: "morality",
+            categoryName: "道德文化传承",
+            location: {lat: 36.58, lng: 114.83},
+            address: "河北省邯郸市肥乡区天台山镇",
+            description: "天台山镇孝老食堂成立于2020年，为十多名70岁以上老年人提供一日三餐服务，解决了老年人的吃饭问题和老人子女们的后顾之忧。2022年，该镇又建成肥乡区第一家'孝老洗衣房'，为周边村庄的老人们提供免费洗衣服务。",
+            image: "https://p3-doubao-search-sign.byteimg.com/labis/8752a07af2682ed15752cf04198d99db~tplv-be4g95zd3a-image.jpeg?rk3s=542c0f93&x-expires=1764404476&x-signature=O%2FHaoDs%2FKcyfxLK96f3qUgUITaQ%3D",
+            video: "",
+            audio: "",
+            interpretation: "孝老食堂是肥乡区推进农村养老服务的创新举措，体现了'老吾老，以及人之老'的传统美德。肥乡区通过政府引导、社会参与的方式，建立了多元化的养老服务体系，让老年人安享晚年。",
+            oralHistory: "经常来食堂用餐的张爷爷（79岁）说：'孩子们都在外打工，自己做饭不方便。这里不仅吃得好，还能和老伙计们聊聊天，心里暖和。这是政府为我们办的大好事啊！'",
+            storyOrder: 2,
+            storyDescription: "第二站我们来到天台山镇孝老食堂，这里为70岁以上老年人提供一日三餐服务，解决了老年人的吃饭问题和老人子女们的后顾之忧。肥乡区通过政府引导、社会参与的方式，建立了多元化的养老服务体系，让老年人安享晚年。"
+        },
+        {
+            id: 3,
+            name: "肥乡区人民法院",
+            category: "rule",
+            categoryName: "法治建设实践",
+            location: {lat: 36.55, lng: 114.80},
+            address: "河北省邯郸市肥乡区肥乡镇广安路",
+            description: "肥乡区人民法院积极推进司法体制改革，加强审判执行工作规范化建设，提升司法服务水平。2024年，肥乡法院共受理各类案件6800余件，审（执）结案率达96%以上，为县域经济社会高质量发展提供有力的司法保障。",
+            image: "https://p11-doubao-search-sign.byteimg.com/pgc-image/7a737205cae74b8aa7aa5fd008dd6f57~tplv-be4g95zd3a-image.jpeg?rk3s=542c0f93&x-expires=1764404476&x-signature=%2FFgRAg2bfiD7khtluV1wd%2B7blic%3D",
+            video: "",
+            audio: "",
+            interpretation: "肥乡区人民法院在推进法治政府建设中发挥了重要作用，通过依法严惩各类刑事犯罪、积极妥善化解民商事纠纷、监督支持依法行政、多措并举解决执行难等工作，为肥乡经济社会发展提供了有力的司法保障。",
+            relatedLaw: "《中华人民共和国民法典》第1043条规定：'家庭应当树立优良家风，弘扬家庭美德，重视家庭文明建设。'肥乡法院在审理家事案件时，特别注重家风建设引导，将法律与道德教育相结合。",
+            storyOrder: 3,
+            storyDescription: "第三站我们来到肥乡区人民法院，这里是肥乡法治建设的重要窗口。肥乡法院通过依法严惩各类刑事犯罪、积极妥善化解民商事纠纷、监督支持依法行政、多措并举解决执行难等工作，为肥乡经济社会发展提供了有力的司法保障。"
+        },
+        {
+            id: 4,
+            name: "肥乡区行政执法智慧监督平台",
+            category: "rule",
+            categoryName: "法治建设实践",
+            location: {lat: 36.57, lng: 114.82},
+            address: "河北省邯郸市肥乡区肥乡镇",
+            description: "肥乡区行政执法智慧监督平台是肥乡司法局创新开发的小程序，实现对各行政执法单位入企执法'事前、事中、事后'全链条监督，让执法留痕、有迹可循，有效避免任意执法、扰企执法，促进严格规范公正文明执法。",
+            image: "https://p11-doubao-search-sign.byteimg.com/pgc-image/21c720e762f94bbe855f4e308a76c0af~tplv-be4g95zd3a-image.jpeg?rk3s=542c0f93&x-expires=1764404476&x-signature=QNyihkUVMHDxfLCtveJlhQez43s%3D",
+            video: "",
+            audio: "",
+            interpretation: "肥乡区行政执法智慧监督平台是肥乡推进法治政府建设的创新举措，通过互联网技术实现了对行政执法的全链条监督，有效推动了全县行政执法工作的规范化、透明化、高效化。",
+            relatedLaw: "该平台运行机制符合《优化营商环境条例》的要求，通过规范涉企行政执法行为，保护各类市场主体的合法权益，营造稳定、公平、透明、可预期的营商环境。",
+            storyOrder: null
+        },
+        {
+            id: 5,
+            name: "肥乡区新时代文明实践中心",
+            category: "values",
+            categoryName: "核心价值观践行",
+            location: {lat: 36.54, lng: 114.79},
+            address: "河北省邯郸市肥乡区肥乡镇",
+            description: "肥乡区新时代文明实践中心是推进新时代中国特色社会主义思想深入人心、落地生根的重要载体，通过开展各类文明实践活动，弘扬社会主义核心价值观。全区各乡镇均建有新时代文明实践所(站)，开展各具特色的文明实践活动。",
+            image: "https://p11-doubao-search-sign.byteimg.com/tos-cn-i-6w9my0ksvp/6045f69262a54aef9a3f9716109925fb~tplv-be4g95zd3a-image.jpeg?rk3s=542c0f93&x-expires=1764404477&x-signature=6NYXo0IAd9QTBmKFgY50A4J8hAo%3D",
+            video: "",
+            audio: "",
+            interpretation: "肥乡区新时代文明实践中心是社会主义核心价值观宣传教育的重要阵地，通过开展理论宣讲、文化活动、志愿服务等多种形式的文明实践活动，使社会主义核心价值观内化于心、外化于行。",
+            practiceCase: "2023年春节期间，中心组织'邻里守望'志愿服务活动，300余名志愿者为空巢老人、留守儿童等特殊群体提供家政服务、亲情陪伴、学业辅导等服务，践行了'友善'的社会主义核心价值观。",
+            storyOrder: 4,
+            storyDescription: "我们的最后一站是肥乡区新时代文明实践中心，这里是推进新时代中国特色社会主义思想深入人心、落地生根的重要载体。全区各乡镇均建有新时代文明实践所(站)，开展各具特色的文明实践活动，将文明实践作为传递爱心、传播文明、弘扬社会主义核心价值观的生动实践和有效载体。"
+        },
+        {
+            id: 6,
+            name: "肥乡区窦默故里文化园",
+            category: "values",
+            categoryName: "核心价值观践行",
+            location: {lat: 36.59, lng: 114.84},
+            address: "河北省邯郸市肥乡区辛安镇镇",
+            description: "窦默故里文化园是为纪念元代著名理学家、医学家窦默而建，展示了窦默的生平事迹和学术成就。窦默是肥乡历史文化名人，在理学、医学等领域有重要贡献，其故里位于肥乡区辛安镇镇窦默村。",
+            image: "https://p11-doubao-search-sign.byteimg.com/tos-cn-i-6w9my0ksvp/7e6d1a72d0d94d8a80a6b768ee8ab39c~tplv-be4g95zd3a-image.jpeg?rk3s=542c0f93&x-expires=1764404477&x-signature=x%2Fd4o6jb%2BErzka5hl%2B9gKQQDgMc%3D",
+            video: "",
+            audio: "",
+            interpretation: "窦默文化是肥乡重要的历史文化资源，肥乡区通过建设窦默故里文化园，传承和弘扬窦默的学术思想和人文精神，将传统文化与现代文明相结合，为肥乡文化建设注入了新的活力。",
+            practiceCase: "文化园定期举办'窦默理学思想研讨会'，邀请学者和村民共同探讨传统智慧在当代的价值，体现了'文明'与'和谐'的社会主义核心价值观。",
+            storyOrder: null
+        },
+        {
+            id: 7,
+            name: "肥乡区乡村振兴示范村（东张寨村）",
+            category: "values",
+            categoryName: "核心价值观践行",
+            location: {lat: 36.53, lng: 114.78},
+            address: "河北省邯郸市肥乡区天台山镇",
+            description: "东张寨村通过发展特色种植、乡村旅游等产业，实现了从贫困村到小康村的转变。村里建设了文化广场、新时代文明实践站等设施，村民精神文化生活丰富，邻里关系和谐。",
+            image: "https://p26-doubao-search-sign.byteimg.com/labis/07a237594416e007bb724bb5f78f7f7d~tplv-be4g95zd3a-image.jpeg?rk3s=542c0f93&x-expires=1764404477&x-signature=3RQ98zFT3zB85Z7zkYTJo%2Bku18k%3D",
+            video: "",
+            audio: "",
+            interpretation: "东张寨村的变迁是肥乡区实施乡村振兴战略的缩影，体现了'富强'、'和谐'等社会主义核心价值观。通过发展产业、改善民生、加强精神文明建设，实现了物质文明和精神文明协调发展。",
+            practiceCase: "村里成立了'乡贤理事会'，由退休干部、企业家等组成，参与村务决策和矛盾调解，体现了'民主'的价值观。2023年村民人均收入较2018年增长了85%，体现了'富强'的发展成果。",
+            storyOrder: null
+        },
+        {
+            id: 8,
+            name: "肥乡区第一中学",
+            category: "morality",
+            categoryName: "道德文化传承",
+            location: {lat: 36.52, lng: 114.77},
+            address: "河北省邯郸市肥乡区肥乡镇",
+            description: "肥乡区第一中学是肥乡道德教育的重要基地，以优秀教师典型事迹为榜样，开展道德教育活动。学校注重培养学生的道德素养和社会责任感，通过开展志愿服务、道德讲堂等活动，促进学生全面发展。",
+            image: "https://p11-doubao-search-sign.byteimg.com/labis/82a4e532be53d2e3ff506aa4ad8351ff~tplv-be4g95zd3a-image.jpeg?rk3s=542c0f93&x-expires=1764404476&x-signature=WtenwuR537TDqK8DI1Rd%2BT8nPmw%3D",
+            video: "",
+            audio: "",
+            interpretation: "肥乡区第一中学通过开展丰富多彩的道德教育活动，将道德教育融入日常教学中，培养学生的道德素养和社会责任感，是社会主义核心价值观在教育领域的生动实践。",
+            oralHistory: "德育处王老师说：'我们组织学生到敬老院开展志愿服务已有8年，很多学生从一开始的羞涩到后来主动策划活动，这个过程就是道德成长的过程。有毕业生说，这段经历让他学会了感恩。'",
+            storyOrder: null
+        },
+        {
+            id: 9,
+            name: "肥乡区留守儿童关爱中心",
+            category: "challenge",
+            categoryName: "发展挑战与青年责任",
+            location: {lat: 36.60, lng: 114.76},
+            address: "河北省邯郸市肥乡区旧店乡",
+            description: "该中心为周边村庄50余名留守儿童提供课后辅导、心理疏导和兴趣培养服务。由于外出务工人员较多，肥乡区农村留守儿童问题较为突出，约有1200余名留守儿童需要关爱服务。",
+            image: "https://p11-doubao-search-sign.byteimg.com/tos-cn-i-6w9my0ksvp/53524b1677c484191d39a82651e1~tplv-be4g95zd3a-image.jpeg?rk3s=542c0f93&x-expires=1764404477&x-signature=2j%2BqQlD3lB1L%2Bnq%2B%2Bc7t%2F5C5I%3D",
+            video: "",
+            audio: "",
+            challenge: "留守儿童面临情感缺失、教育陪伴不足等问题，部分儿童出现心理健康隐患。中心现有设施和人员不足，难以满足所有留守儿童的需求。",
+            youthAction: [
+                "大学生志愿者可利用寒暑假开展支教活动，辅导学业并组织文体活动",
+                "建立'一对一'书信或线上辅导结对机制，进行长期陪伴",
+                "通过新媒体平台宣传留守儿童关爱事迹，吸引更多社会资源参与",
+                "协助中心建立留守儿童档案，为精准帮扶提供支持"
+            ],
+            storyOrder: null
+        },
+        {
+            id: 10,
+            name: "肥乡区传统布艺工坊",
+            category: "challenge",
+            categoryName: "发展挑战与青年责任",
+            location: {lat: 36.51, lng: 114.85},
+            address: "河北省邯郸市肥乡区毛演堡镇",
+            description: "肥乡传统布艺有着300多年历史，以刺绣、布贴等工艺著称，是省级非物质文化遗产。目前仅剩3名传承人，平均年龄65岁，面临技艺失传的困境。",
+            image: "https://p3-doubao-search-sign.byteimg.com/tos-cn-i-6w9my0ksvp/5a8d25a263543609f6d02a0f8a07f8~tplv-be4g95zd3a-image.jpeg?rk3s=542c0f93&x-expires=1764404477&x-signature=YHj3kL%2Bk%2BkGj%2B9n%2BcP0LgPw4tI%3D",
+            video: "",
+            audio: "",
+            challenge: "传统布艺制作耗时费力，经济效益不高，年轻人不愿学习传承。同时，产品设计陈旧，难以适应现代市场需求，导致技艺传承陷入困境。",
+            youthAction: [
+                "组织设计专业学生为传统布艺开发符合现代审美的新产品",
+                "利用电商知识帮助传承人拓展销售渠道，提高经济收益",
+                "拍摄技艺纪录片和教学视频，利用新媒体扩大影响力",
+                "在校园开展非遗体验活动，培养青少年对传统技艺的兴趣"
+            ],
+            storyOrder: null
+        }
+    ];
+
+    // 定义颜色映射
+    const categoryColors = {
+        morality: '#92400e',    // 棕色 - 道德文化传承
+        rule: '#1e40af',        // 蓝色 - 法治建设实践
+        values: '#b91c1c',      // 红色 - 核心价值观践行
+        challenge: '#f59e0b'    // 琥珀色 - 发展挑战与青年责任
+    };
+
+    // 定义图标映射
+    const categoryIcons = {
+        morality: 'fa-heart',
+        rule: 'fa-gavel',
+        values: 'fa-star',
+        challenge: 'fa-lightbulb-o'
+    };
+
+    // 初始化地图
+    var map;
+    function initMap() {
+        try {
+            map = new BMapGL.Map("map-container");
+            var point = new BMapGL.Point(114.81, 36.56); // 肥乡区中心点
+            map.centerAndZoom(point, 13);
+            map.enableScrollWheelZoom(true);
+            console.log("地图初始化成功");
+
+            // 添加地图加载完成后的欢迎信息
+            map.addEventListener('tilesloaded', function() {
+                console.log("地图加载完成，开始创建点位标记");
+                createMarkers();
+                
+                // 显示欢迎信息
+                setTimeout(() => {
+                    const welcomePoint = new BMapGL.Point(114.81, 36.56);
+                    const welcomeInfo = new BMapGL.InfoWindow(
+                        `<div style="padding:10px;text-align:center">
+                            <h3 style="margin:0 0 10px 0">欢迎探索肥乡人文地图</h3>
+                            <p style="margin:0">这里记录着家乡的道德传承与法治实践</p>
+                        </div>`,
+                        {width: 200, height: 100}
+                    );
+                    map.openInfoWindow(welcomeInfo, welcomePoint);
+                }, 1000);
+            });
+        } catch (error) {
+            console.error("地图初始化失败:", error);
+            alert("地图加载失败: " + error.message);
+        }
+    }
+
+    // 创建点位标记和带分类标识的标签
+    const markers = {};
+    const labels = {}; // 存储标签引用
+    function createMarkers() {
+        try {
+            points.forEach(point => {
+                // 增大图标尺寸以确保显示完整
+                const iconSize = new BMapGL.Size(30, 40);
+                const icon = new BMapGL.Icon("http://api.map.baidu.com/img/markers.png", iconSize, {
+                    offset: new BMapGL.Size(15, 40), // 调整偏移量确保图标底部对准坐标点
+                    imageOffset: new BMapGL.Size(0, 0 - 40 * 0) // 默认使用红色图标
+                });
+
+                // 根据类别设置不同颜色
+                const iconColor = categoryColors[point.category];
+                if (iconColor === '#92400e') { // 棕色
+                    icon.setImageOffset(new BMapGL.Size(0, 0 - 40 * 3));
+                } else if (iconColor === '#1e40af') { // 蓝色
+                    icon.setImageOffset(new BMapGL.Size(0, 0 - 40 * 1));
+                } else if (iconColor === '#b91c1c') { // 红色
+                    icon.setImageOffset(new BMapGL.Size(0, 0 - 40 * 0));
+                } else if (iconColor === '#f59e0b') { // 琥珀色（新增）
+                    icon.setImageOffset(new BMapGL.Size(0, 0 - 40 * 4));
+                } else if (iconColor === '#065f46') { // 绿色
+                    icon.setImageOffset(new BMapGL.Size(0, 0 - 40 * 2));
+                }
+
+                // 创建标记
+                const marker = new BMapGL.Marker(new BMapGL.Point(point.location.lng, point.location.lat), {
+                    icon: icon
+                });
+
+                // 为青年责任点位添加脉动效果
+                if (point.category === 'challenge') {
+                    marker.setAnimation(BMAP_ANIMATION_PULSE);
+                }
+
+                // 创建带分类标识的自定义标签
+                const labelContent = `
+                    <div class="custom-label" style="border-left-color: ${iconColor}">
+                        <span class="category-badge" style="background-color: ${iconColor}">
+                            <i class="fa ${categoryIcons[point.category]}"></i>
+                        </span>
+                        ${point.name}
+                    </div>
+                `;
+
+                const label = new BMapGL.Label(labelContent, {
+                    offset: new BMapGL.Size(-80, 40), // 标签位置在图标下方
+                    position: new BMapGL.Point(point.location.lng, point.location.lat)
+                });
+
+                // 设置标签样式，允许HTML内容
+                label.setStyle({
+                    border: "none",
+                    padding: "0",
+                    margin: "0",
+                    zIndex: "100"
+                });
+                label.setContent(labelContent); // 再次设置内容以确保HTML生效
+
+                // 添加点击事件
+                marker.addEventListener('click', function() {
+                    showInfoWindow(point);
+                });
+                // 标签也可点击
+                label.addEventListener('click', function() {
+                    showInfoWindow(point);
+                });
+
+                // 添加到地图
+                map.addOverlay(marker);
+                map.addOverlay(label);
+
+                // 保存标记和标签引用
+                markers[point.id] = marker;
+                labels[point.id] = label;
+            });
+            console.log("点位标记创建成功，共创建", points.length, "个点位");
+        } catch (error) {
+            console.error("创建点位标记失败:", error);
+            alert("点位加载失败: " + error.message);
+        }
+    }
+
+    // 显示信息窗口 - 增强内容深度和温度
+    function showInfoWindow(point) {
+        // 构建口述史部分
+        let oralHistoryHtml = '';
+        if (point.oralHistory) {
+            oralHistoryHtml = `
+                <div class="oral-history">
+                    <p class="text-sm font-semibold mb-1">居民口述：</p>
+                    <p class="text-sm">${point.oralHistory}</p>
+                </div>
+            `;
+        }
+
+        // 构建相关法律部分
+        let relatedLawHtml = '';
+        if (point.relatedLaw) {
+            relatedLawHtml = `
+                <div class="mb-3">
+                    <h4 class="font-semibold mb-1">相关法律解读</h4>
+                    <p class="text-gray-700 text-sm">${point.relatedLaw}</p>
+                </div>
+            `;
+        }
+
+        // 构建实践案例部分
+        let practiceCaseHtml = '';
+        if (point.practiceCase) {
+            practiceCaseHtml = `
+                <div class="mb-3">
+                    <h4 class="font-semibold mb-1">价值观实践案例</h4>
+                    <p class="text-gray-700 text-sm">${point.practiceCase}</p>
+                </div>
+            `;
+        }
+
+        // 构建挑战与青年行动部分
+        let challengeHtml = '';
+        if (point.challenge) {
+            let youthActionsHtml = '';
+            if (point.youthAction && point.youthAction.length > 0) {
+                youthActionsHtml = '<ul class="list-disc list-inside text-sm text-gray-700">';
+                point.youthAction.forEach(action => {
+                    youthActionsHtml += `<li class="mb-1">${action}</li>`;
+                });
+                youthActionsHtml += '</ul>';
+            }
+
+            challengeHtml = `
+                <div class="mb-3">
+                    <h4 class="font-semibold mb-1">发展挑战</h4>
+                    <p class="text-gray-700 text-sm mb-2">${point.challenge}</p>
+                    
+                    <div class="youth-action">
+                        <h4 class="font-semibold mb-1 text-tertiary">青年行动建议</h4>
+                        ${youthActionsHtml}
+                    </div>
+                </div>
+            `;
+        }
+
+        // 创建信息窗口内容
+        const content = `
+                <div class="info-window">
+                    <img src="${point.image}" alt="${point.name}">
+                    <div class="p-4">
+                        <div class="flex items-center mb-2">
+                            <span class="category-icon bg-${
+                                point.category === 'morality' ? 'quaternary' : 
+                                point.category === 'rule' ? 'primary' : 
+                                point.category === 'values' ? 'secondary' : 
+                                'amber-500'
+                            } text-white">
+                                <i class="fa ${
+                                    point.category === 'morality' ? 'fa-heart' : 
+                                    point.category === 'rule' ? 'fa-gavel' : 
+                                    point.category === 'values' ? 'fa-star' : 
+                                    'fa-lightbulb-o'
+                                }"></i>
+                            </span>
+                            <h3 class="text-lg font-bold">${point.name}</h3>
+                        </div>
+                        <p class="text-gray-600 text-sm mb-2">${point.categoryName}</p>
+                        <p class="text-gray-700 mb-3">${point.description}</p>
+                        
+                        ${oralHistoryHtml}
+                        
+                        <div class="mb-3">
+                            <h4 class="font-semibold mb-1">深度解读</h4>
+                            <p class="text-gray-700 text-sm">${point.interpretation}</p>
+                        </div>
+                        
+                        ${relatedLawHtml}
+                        ${practiceCaseHtml}
+                        ${challengeHtml}
+                        
+                        ${point.video ? `
+                        <div class="flex justify-between">
+                            <button class="play-audio bg-gray-200 text-gray-700 py-1 px-3 rounded hover:bg-gray-300 transition-colors text-sm" data-audio="${point.audio}">
+                                <i class="fa fa-volume-up mr-1"></i> 听讲解
+                            </button>
+                            <button class="show-video bg-primary text-white py-1 px-3 rounded hover:bg-blue-800 transition-colors text-sm" data-video="${point.video}">
+                                <i class="fa fa-play mr-1"></i> 看视频
+                            </button>
+                        </div>
+                        ` : ''}
+                    </div>
+                </div>
+            `;
+
+        // 创建信息窗口
+        const infoWindow = new BMapGL.InfoWindow(content, {
+            width: 350,
+            height: 500,
+            title: point.name,
+            offset: new BMapGL.Size(0, -10)
+        });
+
+        // 打开信息窗口
+        map.openInfoWindow(infoWindow, new BMapGL.Point(point.location.lng, point.location.lat));
+
+        // 添加事件监听
+        setTimeout(() => {
+            if (point.audio) {
+                document.querySelectorAll('.play-audio').forEach(btn => {
+                    btn.addEventListener('click', function() {
+                        const audioUrl = this.getAttribute('data-audio');
+                        playAudio(audioUrl);
+                    });
+                });
+            }
+
+            if (point.video) {
+                document.querySelectorAll('.show-video').forEach(btn => {
+                    btn.addEventListener('click', function() {
+                        const videoUrl = this.getAttribute('data-video');
+                        showVideo(videoUrl);
+                    });
+                });
+            }
+        }, 100);
+    }
+
+    // 播放音频
+    function playAudio(url) {
+        alert('正在播放音频: ' + url);
+        // 实际项目中可以使用HTML5 Audio API
+    }
+
+    // 显示视频
+    function showVideo(url) {
+        alert('正在播放视频: ' + url);
+        // 实际项目中可以使用HTML5 Video API或弹出视频播放窗口
+    }
+
+    // 分类筛选（同时控制标记和标签的显示）
+    document.querySelectorAll('.category-checkbox').forEach(checkbox => {
+        checkbox.addEventListener('change', function() {
+            const category = this.value;
+            const isChecked = this.checked;
+
+            points.forEach(point => {
+                if (point.category === category) {
+                    if (isChecked) {
+                        map.addOverlay(markers[point.id]);
+                        map.addOverlay(labels[point.id]);
+                    } else {
+                        map.removeOverlay(markers[point.id]);
+                        map.removeOverlay(labels[point.id]);
+                    }
+                }
+            });
+        });
+    });
+
+    // 关键词搜索（同时控制标记和标签的显示）
+    document.getElementById('search-input').addEventListener('input', function() {
+        const keyword = this.value.toLowerCase();
+
+        points.forEach(point => {
+            const match =
+                point.name.toLowerCase().includes(keyword) ||
+                point.description.toLowerCase().includes(keyword) ||
+                point.categoryName.toLowerCase().includes(keyword) ||
+                (point.interpretation && point.interpretation.toLowerCase().includes(keyword));
+
+            if (match) {
+                map.addOverlay(markers[point.id]);
+                map.addOverlay(labels[point.id]);
+            } else {
+                // 检查该点所在分类是否被选中
+                const categoryChecked = document.querySelector(`.category-checkbox[value="${point.category}"]`).checked;
+                if (categoryChecked) {
+                    map.removeOverlay(markers[point.id]);
+                    map.removeOverlay(labels[point.id]);
+                }
+            }
+        });
+    });
+
+    // 故事线功能 - 增强叙事性和情感连接
+    let currentStoryIndex = 0;
+    const storyPoints = points.filter(point => point.storyOrder !== null).sort((a, b) => a.storyOrder - b.storyOrder);
+
+    document.getElementById('story-btn').addEventListener('click', function() {
+        document.getElementById('story-line').classList.add('active');
+        showStoryPoint(0);
+    });
+
+    document.querySelector('.close-story').addEventListener('click', function() {
+        document.getElementById('story-line').classList.remove('active');
+        // 停止所有动画
+        Object.values(markers).forEach(marker => {
+            marker.setAnimation(null);
+        });
+    });
+
+    document.getElementById('prev-story').addEventListener('click', function() {
+        if (currentStoryIndex > 0) {
+            showStoryPoint(currentStoryIndex - 1);
+        }
+    });
+
+    document.getElementById('next-story').addEventListener('click', function() {
+        if (currentStoryIndex < storyPoints.length - 1) {
+            showStoryPoint(currentStoryIndex + 1);
+        }
+    });
+
+    function showStoryPoint(index) {
+        currentStoryIndex = index;
+        const point = storyPoints[index];
+
+        document.getElementById('story-title').textContent = point.name;
+        document.getElementById('story-content').innerHTML = `
+                <img src="${point.image}" alt="${point.name}" class="w-full h-48 object-cover rounded-lg mb-4">
+                <p class="text-gray-700 mb-4">${point.storyDescription}</p>
+                <p class="text-gray-600 text-sm mb-4">${point.address}</p>
+                
+                ${point.oralHistory ? `
+                <div class="oral-history">
+                    <p class="text-sm font-semibold mb-1">居民讲述：</p>
+                    <p class="text-sm">${point.oralHistory}</p>
+                </div>
+                ` : ''}
+                
+                <div class="mt-4 text-sm text-gray-500">
+                    <p>(${index + 1}/${storyPoints.length})</p>
+                </div>
+            `;
+
+        // 更新进度条
+        const progress = ((index + 1) / storyPoints.length) * 100;
+        document.getElementById('story-progress').style.width = `${progress}%`;
+
+        // 更新导航按钮状态
+        document.getElementById('prev-story').disabled = index === 0;
+        document.getElementById('prev-story').classList.toggle('opacity-50', index === 0);
+        document.getElementById('next-story').innerHTML = index === storyPoints.length - 1 ?
+            '结束旅程 <i class="fa fa-check ml-2"></i>' :
+            '下一站 <i class="fa fa-arrow-right ml-2"></i>';
+
+        // 移动地图到当前点位，添加平滑过渡
+        map.panTo(new BMapGL.Point(point.location.lng, point.location.lat), {duration: 1000});
+        map.setZoom(15);
+
+        // 高亮当前点位
+        Object.keys(markers).forEach(key => {
+            const marker = markers[key];
+            if (parseInt(key) === point.id) {
+                marker.setAnimation(BMAP_ANIMATION_BOUNCE);
+            } else {
+                marker.setAnimation(null);
+            }
+        });
+
+        // 如果是最后一个点位，点击下一站按钮关闭故事线并显示总结
+        if (index === storyPoints.length - 1) {
+            document.getElementById('next-story').onclick = function() {
+                document.getElementById('story-line').classList.remove('active');
+                // 显示总结信息
+                const summaryPoint = new BMapGL.Point(114.81, 36.56);
+                const summaryInfo = new BMapGL.InfoWindow(
+                    `<div style="padding:10px">
+                        <h3 style="margin:0 0 10px 0">肥乡道德法治建设之旅</h3>
+                        <p style="margin:0 0 10px 0">通过这次旅程，我们看到了肥乡在道德传承与法治建设中的努力与成就。</p>
+                        <p style="margin:0">每一个点位都是肥乡人民践行社会主义核心价值观的生动体现。</p>
+                    </div>`,
+                    {width: 250, height: 120}
+                );
+                map.openInfoWindow(summaryInfo, summaryPoint);
+                
+                // 停止所有动画
+                Object.values(markers).forEach(marker => {
+                    marker.setAnimation(null);
+                });
+            };
+        } else {
+            // 重置点击事件
+            document.getElementById('next-story').onclick = function() {
+                if (currentStoryIndex < storyPoints.length - 1) {
+                    showStoryPoint(currentStoryIndex + 1);
+                }
+            };
+        }
+    }
+
+    // 田野笔记功能 - 增强用户参与和思考
+    document.getElementById('notes-btn').addEventListener('click', function() {
+        document.getElementById('notes-modal').classList.add('active');
+        // 加载保存的笔记
+        const savedNotes = localStorage.getItem('fieldNotes');
+        if (savedNotes) {
+            document.getElementById('notes-content').value = savedNotes;
+        }
+    });
+
+    document.querySelector('.close-notes').addEventListener('click', function() {
+        document.getElementById('notes-modal').classList.remove('active');
+    });
+
+    document.getElementById('save-notes').addEventListener('click', function() {
+        const notes = document.getElementById('notes-content').value;
+        localStorage.setItem('fieldNotes', notes);
+        alert('笔记保存成功！你的观察与思考将帮助我们更好地了解家乡。');
+        document.getElementById('notes-modal').classList.remove('active');
+    });
+
+    // 导航按钮
+    document.getElementById('prev-btn').addEventListener('click', function() {
+        const currentCenter = map.getCenter();
+        const newCenter = new BMapGL.Point(currentCenter.lng - 0.02, currentCenter.lat);
+        map.panTo(newCenter);
+    });
+
+    document.getElementById('next-btn').addEventListener('click', function() {
+        const currentCenter = map.getCenter();
+        const newCenter = new BMapGL.Point(currentCenter.lng + 0.02, currentCenter.lat);
+        map.panTo(newCenter);
+    });
+
+    // 上传按钮 - 增强用户参与
+    document.querySelector('.upload-btn').addEventListener('click', function() {
+        alert('你可以上传自己发现的家乡特色点位：\n1. 拍摄点位照片\n2. 记录点位详细信息\n3. 分享你的观察与思考\n经审核后将加入地图，成为家乡故事的一部分');
+    });
+
+    // 页面加载完成后初始化
+    window.addEventListener('load', function() {
+        console.log("页面加载完成，开始初始化地图");
+        initMap();
+    });
+</script>
+</body>
+</html>
